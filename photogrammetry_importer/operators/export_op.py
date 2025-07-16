@@ -34,12 +34,23 @@ class ExportOperator(bpy.types.Operator):
                 obj_points = []
                 # Option 1: Mesh Object
                 if obj.data is not None:
+                    # retrieve color data
+                    point_color_attribute = obj.data.color_attributes.get("point_color")
+                    if point_color_attribute:
+                        point_colors = [None] * len(obj.data.vertices) * 4
+                        point_color_attribute.data.foreach_get("color_srgb", point_colors) 
+                        point_colors = [
+                            tuple(round(val * 255) for val in point_colors[i:i+4])
+                            for i in range(0, len(point_colors), 4)
+                        ]
+
                     for vert in obj.data.vertices:
                         coord_world = obj.matrix_world @ vert.co
+                        point_color = point_colors[vert.index] if point_color_attribute else [0, 255, 0]
                         obj_points.append(
                             Point(
                                 coord=coord_world,
-                                color=[0, 255, 0],
+                                color=point_color[:3],
                                 id=point_index,
                                 scalars=[],
                             )
