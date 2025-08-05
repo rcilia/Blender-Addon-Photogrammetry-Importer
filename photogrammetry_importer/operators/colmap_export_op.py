@@ -1,6 +1,6 @@
 import os
 import bpy
-from bpy.props import StringProperty, CollectionProperty
+from bpy.props import StringProperty, CollectionProperty, EnumProperty
 from bpy_extras.io_utils import ExportHelper
 
 from photogrammetry_importer.file_handlers.colmap_file_handler import (
@@ -25,6 +25,16 @@ class ExportColmapOperator(ExportOperator, ExportHelper):
         type=bpy.types.OperatorFileListElement,
     )
 
+    camera_model: EnumProperty(
+        name="Camera Model",
+        description="Choose the camera model for export",
+        items=[
+            ("SIMPLE_PINHOLE", "Simple Pinhole", "Single focal length (f, cx, cy)"),
+            ("PINHOLE", "Pinhole", "Separate focal lengths (fx, fy, cx, cy)"),
+        ],
+        default="SIMPLE_PINHOLE",
+    )
+
     filename_ext = ""
     # filter_folder : BoolProperty(default=True, options={'HIDDEN'})
 
@@ -37,6 +47,6 @@ class ExportColmapOperator(ExportOperator, ExportHelper):
         for cam in cameras:
             assert cam.get_calibration_mat() is not None
 
-        ColmapFileHandler.write_colmap_model(odp, cameras, points, self)
+        ColmapFileHandler.write_colmap_model(odp, cameras, points, camera_model=self.camera_model, op=self)
 
         return {"FINISHED"}

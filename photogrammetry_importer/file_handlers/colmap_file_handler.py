@@ -324,9 +324,14 @@ class ColmapFileHandler:
         return cameras, points, mesh_ifp
 
     @staticmethod
-    def write_colmap_model(odp, cameras, points, op=None):
+    def write_colmap_model(odp, cameras, points, camera_model="SIMPLE_PINHOLE", op=None):
         """Write cameras and points as :code:`Colmap` model."""
         log_report("INFO", "Write Colmap model folder: " + odp, op)
+
+        assert camera_model in [
+            "SIMPLE_PINHOLE",
+            "PINHOLE",
+        ], f"Unsupported camera model: {camera_model}"
 
         if not os.path.isdir(odp):
             os.mkdir(odp)
@@ -344,16 +349,21 @@ class ColmapFileHandler:
         colmap_cams = {}
         colmap_images = {}
         for cam in cameras:
-            # TODO Support the "PINHOLE" camera model
-            colmap_camera_model_name = "SIMPLE_PINHOLE"
-
             pp = cam.get_principal_point()
+            if camera_model == "SIMPLE_PINHOLE":
+                camera_param_list = np.array([cam.get_focal_length(), pp[0], pp[1]])
+            elif camera_model == "PINHOLE":
+                calibration_mat = cam.get_calibration_mat()
+                fx = calibration_mat[0][0]
+                fy = calibration_mat[1][1]
+                camera_param_list = np.array([fx, fy, pp[0], pp[1]])
+            
             colmap_cam = ColmapCamera(
                 id=cam.id,
-                model=colmap_camera_model_name,
+                model=camera_model,
                 width=cam.width,
                 height=cam.height,
-                params=np.array([cam.get_focal_length(), pp[0], pp[1]]),
+                params=camera_param_list,
             )
             colmap_cams[cam.id] = colmap_cam
             

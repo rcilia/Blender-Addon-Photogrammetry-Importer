@@ -232,11 +232,18 @@ class Camera:
         return self._panoramic_type
 
     @staticmethod
+    def compute_calibration_mat_with_focal_lengths(fx, fy, cx, cy, skew=0.0):
+        """Return the calibration matrix with separate fx and fy."""
+        return np.array(
+            [[fx, skew, cx], [0, fy, cy], [0, 0, 1]],
+            dtype=float,
+        )
+
+    @staticmethod
     def compute_calibration_mat(focal_length, cx, cy):
         """Return the calibration matrix."""
-        return np.array(
-            [[focal_length, 0, cx], [0, focal_length, cy], [0, 0, 1]],
-            dtype=float,
+        return Camera.compute_calibration_mat_with_focal_lengths(
+            fx=focal_length, fy=focal_length, cx=cx, cy=cy
         )
 
     def set_rotation_with_quaternion(self, quaternion):

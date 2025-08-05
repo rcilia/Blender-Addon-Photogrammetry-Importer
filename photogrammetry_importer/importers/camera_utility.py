@@ -78,8 +78,26 @@ def _add_camera_data(camera, camera_name):
     if camera.is_panoramic():
         bcamera.type = "PANO"
         bcamera.cycles.panorama_type = camera.get_panoramic_type()
-    #  Adjust field of view
-    bcamera.angle = camera.get_field_of_view()
+    else:
+        calib_mat = camera.get_calibration_mat()
+        fx = calib_mat[0][0]
+        fy = calib_mat[1][1]
+        width = camera.width
+        height = camera.height
+
+        # Set sensor and lens properties to preserve fx and fy.
+        # We use the camera's default sensor width as a pivot and calculate
+        # the lens and sensor height to encode the fx/fy ratio.
+        sensor_width_mm = bcamera.sensor_width
+        
+        # From fx = lens * width / sensor_width
+        lens_mm = fx * sensor_width_mm / width
+        bcamera.lens = lens_mm
+        
+        # From fy = lens * height / sensor_height
+        sensor_height_mm = lens_mm * height / fy
+        bcamera.sensor_height = sensor_height_mm
+        
     bcamera.shift_x, bcamera.shift_y = compute_principal_point_shift(
         camera, relativ_to_largest_extend=True
     )
@@ -186,13 +204,15 @@ def get_calibration_mat(blender_camera, op=None):
     scene = bpy.context.scene
     render_resolution_width = scene.render.resolution_x
     render_resolution_height = scene.render.resolution_y
-    focal_length_in_mm = float(blender_camera.data.lens)
-    sensor_width_in_mm = float(blender_camera.data.sensor_width)
-    focal_length_in_pixel = (
-        float(max(scene.render.resolution_x, scene.render.resolution_y))
-        * focal_length_in_mm
-        / sensor_width_in_mm
-    )
+    
+    lens_mm = float(blender_camera.data.lens)
+    sensor_width_mm = float(blender_camera.data.sensor_width)
+    sensor_height_mm = float(blender_camera.data.sensor_height)
+
+    # Re-calculate fx and fy from the Blender camera properties
+    fx = lens_mm * render_resolution_width / sensor_width_mm
+    fy = lens_mm * render_resolution_height / sensor_height_mm
+
     max_extent = max(render_resolution_width, render_resolution_height)
     p_x = (
         render_resolution_width / 2.0
@@ -202,8 +222,9 @@ def get_calibration_mat(blender_camera, op=None):
         render_resolution_height / 2.0
         - blender_camera.data.shift_y * max_extent
     )
-    calibration_mat = Camera.compute_calibration_mat(
-        focal_length_in_pixel, cx=p_x, cy=p_y
+    
+    calibration_mat = Camera.compute_calibration_mat_with_focal_lengths(
+        fx=fx, fy=fy, cx=p_x, cy=p_y
     )
     return calibration_mat
 
